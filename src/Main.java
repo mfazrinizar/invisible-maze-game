@@ -62,7 +62,8 @@ public class Main extends JPanel {
     private boolean canMove = false;
     private boolean practiceMode = false;
     private boolean visibleToggled = false;
-    private JLabel roundLabel, gameLabel, playerLabel, heartsLabel, invisibleTimerLabel, playerAWinsLabel, playerBWinsLabel;
+    private JLabel roundLabel, gameLabel, playerLabel, heartsLabel, invisibleTimerLabel, playerAWinsLabel,
+            playerBWinsLabel;
     private boolean statusPanelCreated = false;
     private JPanel contentPanel;
     JLabel placeholderLabel;
@@ -551,7 +552,8 @@ public class Main extends JPanel {
             if (clip != null && clip.isRunning()) {
                 clip.stop();
             }
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(soundFilePath).getAbsoluteFile());
+            AudioInputStream audioInputStream = AudioSystem
+                    .getAudioInputStream(new File(soundFilePath).getAbsoluteFile());
             clip = AudioSystem.getClip();
             clip.open(audioInputStream);
             clip.start();
@@ -681,6 +683,8 @@ public class Main extends JPanel {
     private void changePlayerTurn() {
         if (games % 2 == 0) {
             playerATurn = true;
+        } else if (!(currentGameAttempts > 2)) {
+            playerATurn = false;
         } else {
             playerATurn = !playerATurn;
         }
@@ -690,7 +694,8 @@ public class Main extends JPanel {
 
     private void checkGameOver() {
         if (playerX == goalX && playerY == goalY) {
-            currentGameAttempts = 1;
+            // if (currentGameAttempts > 2)
+                currentGameAttempts = 1;
             games++;
             System.out.println("Player " + (playerATurn ? "A" : "B") + " reached the goal!");
             if (playerATurn) {
