@@ -16,6 +16,14 @@ import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import java.io.File;
+import java.io.IOException;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
+
 import maze.Direction;
 import maze.Maze;
 import maze.RecursiveBacktracker;
@@ -39,7 +47,7 @@ public class Main extends JPanel {
     private Dimension dimension;
     private List<Shape> shapes;
     private Maze maze;
-    private boolean[][][] wallHits; 
+    private boolean[][][] wallHits;
     private boolean[][] visibleWalls; // Track visible walls
     private int playerX, playerXOri, playerY, playerYOri, goalX, goalY; // Player and goal positions
     private int heartsA, heartsB;
@@ -54,10 +62,11 @@ public class Main extends JPanel {
     private boolean canMove = false;
     private boolean practiceMode = false;
     private boolean visibleToggled = false;
-    private JLabel roundLabel, gameLabel, playerLabel, heartsLabel, invisibleTimerLabel;
+    private JLabel roundLabel, gameLabel, playerLabel, heartsLabel, invisibleTimerLabel, playerAWinsLabel, playerBWinsLabel;
     private boolean statusPanelCreated = false;
     private JPanel contentPanel;
     JLabel placeholderLabel;
+    private Clip clip;
 
     private JFrame window;
 
@@ -103,6 +112,8 @@ public class Main extends JPanel {
         gameLabel = new JLabel("Game: " + games);
         playerLabel = new JLabel("Player: " + (playerATurn ? "A" : "B"));
         heartsLabel = new JLabel("Hearts: " + (playerATurn ? heartsA : heartsB));
+        playerAWinsLabel = new JLabel("A Wins: " + playerAWins);
+        playerBWinsLabel = new JLabel("B Wins: " + playerBWins);
         invisibleTimerLabel = new JLabel();
 
         try {
@@ -120,9 +131,11 @@ public class Main extends JPanel {
         statusPanel.add(roundLabel);
         statusPanel.add(gameLabel);
         statusPanel.add(heartsLabel);
-        statusPanel.add(playerPanel);
         statusPanel.add(playerLabel);
+        statusPanel.add(playerPanel);
         statusPanel.add(goalPanel);
+        statusPanel.add(playerAWinsLabel);
+        statusPanel.add(playerBWinsLabel);
         statusPanel.add(invisibleTimerLabel);
 
         // Add the status panel to the window
@@ -165,41 +178,25 @@ public class Main extends JPanel {
 
         // "1v1 Game" Menu Item
         JMenuItem start1v1GameItem = new JMenuItem("Start 1v1 Game");
-        start1v1GameItem.addActionListener(e -> {
-            // Start the 1v1 game with current difficulty
-            practiceMode = false;
-            System.out.println("1v1 Game started!");
-            currentDifficulty = 1;
-            startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
-        });
+        start1v1GameItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
+
+        start1v1GameItem.addActionListener(e -> start1v1Game());
 
         // "Practice Game" Menu Item with Submenu for difficulties
         JMenu practiceGameMenu = new JMenu("Start Practice Game");
 
         // Difficulty options
         JMenuItem easyGameItem = new JMenuItem("Easy Game");
-        easyGameItem.addActionListener(e -> {
-            practiceMode = true;
-            currentDifficulty = 1; // Easy
-            System.out.println("Easy Game selected!");
-            startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
-        });
+        easyGameItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_E, InputEvent.CTRL_DOWN_MASK));
+        easyGameItem.addActionListener(e -> startEasyGame());
 
         JMenuItem mediumGameItem = new JMenuItem("Medium Game");
-        mediumGameItem.addActionListener(e -> {
-            practiceMode = true;
-            currentDifficulty = 2; // Medium
-            System.out.println("Medium Game selected!");
-            startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
-        });
+        mediumGameItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, InputEvent.CTRL_DOWN_MASK));
+        mediumGameItem.addActionListener(e -> startMediumGame());
 
         JMenuItem hardGameItem = new JMenuItem("Hard Game");
-        hardGameItem.addActionListener(e -> {
-            practiceMode = true;
-            currentDifficulty = 3; // Hard
-            System.out.println("Hard Game selected!");
-            startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
-        });
+        hardGameItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, InputEvent.CTRL_DOWN_MASK));
+        hardGameItem.addActionListener(e -> startHardGame());
 
         // Add difficulty options to the "Practice Game" menu
         practiceGameMenu.add(easyGameItem);
@@ -209,12 +206,7 @@ public class Main extends JPanel {
         // "Invisible/Visible" Toggle Button
         JCheckBoxMenuItem toggleVisibilityItem = new JCheckBoxMenuItem("Toggle Invisible/Visible");
         toggleVisibilityItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, InputEvent.CTRL_DOWN_MASK));
-        toggleVisibilityItem.addActionListener(e -> {
-            wallsInvisible = !wallsInvisible; // Toggle the walls visibility
-            visibleToggled = !visibleToggled;
-            System.out.println("Walls " + (wallsInvisible ? "Invisible" : "Visible"));
-            repaint(); // Redraw the maze with the new visibility state
-        });
+        toggleVisibilityItem.addActionListener(e -> toggleVisibility());
 
         // Add all items to the main 'Game' menu
         gameMenu.add(start1v1GameItem);
@@ -229,9 +221,44 @@ public class Main extends JPanel {
         window.setJMenuBar(menuBar);
     }
 
+    private void start1v1Game() {
+        practiceMode = false;
+        System.out.println("1v1 Game started!");
+        currentDifficulty = 1;
+        startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
+    }
+
+    private void startEasyGame() {
+        practiceMode = true;
+        currentDifficulty = 1; // Easy
+        System.out.println("Easy Game selected!");
+        startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
+    }
+
+    private void startMediumGame() {
+        practiceMode = true;
+        currentDifficulty = 2; // Medium
+        System.out.println("Medium Game selected!");
+        startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
+    }
+
+    private void startHardGame() {
+        practiceMode = true;
+        currentDifficulty = 3; // Hard
+        System.out.println("Hard Game selected!");
+        startGame(getDifficulty(currentDifficulty)[0], getDifficulty(currentDifficulty)[1]);
+    }
+
+    private void toggleVisibility() {
+        wallsInvisible = !wallsInvisible; // Toggle the walls visibility
+        visibleToggled = !visibleToggled;
+        System.out.println("Walls " + (wallsInvisible ? "Invisible" : "Visible"));
+        repaint(); // Redraw the maze with the new visibility state
+    }
+
     @Override
     public Dimension getPreferredSize() {
-        return dimension;
+        return this.dimension;
     }
 
     // @Override
@@ -296,7 +323,7 @@ public class Main extends JPanel {
                         }
                         g2d.drawLine(x * TILE_SIZE, y * TILE_SIZE, (x + 1) * TILE_SIZE, y * TILE_SIZE);
                     }
-    
+
                     // Draw SOUTH wall
                     if (maze.isWall(x, y, Direction.SOUTH)) {
                         if (wallHits[x][y][1]) {
@@ -308,7 +335,7 @@ public class Main extends JPanel {
                         }
                         g2d.drawLine(x * TILE_SIZE, (y + 1) * TILE_SIZE, (x + 1) * TILE_SIZE, (y + 1) * TILE_SIZE);
                     }
-    
+
                     // Draw WEST wall
                     if (maze.isWall(x, y, Direction.WEST)) {
                         if (wallHits[x][y][2]) {
@@ -320,7 +347,7 @@ public class Main extends JPanel {
                         }
                         g2d.drawLine(x * TILE_SIZE, y * TILE_SIZE, x * TILE_SIZE, (y + 1) * TILE_SIZE);
                     }
-    
+
                     // Draw EAST wall
                     if (maze.isWall(x, y, Direction.EAST)) {
                         if (wallHits[x][y][3]) {
@@ -440,10 +467,10 @@ public class Main extends JPanel {
     }
 
     // private void resetGameState() {
-    //     // Reset other game states like player position, score, etc.
-    //     wallsInvisible = false; // Reset wall visibility at the start of each game
-    //     visibleWalls = new boolean[maze.getWidth()][maze.getHeight()];
-    //     repaint(); // Repaint the maze
+    // // Reset other game states like player position, score, etc.
+    // wallsInvisible = false; // Reset wall visibility at the start of each game
+    // visibleWalls = new boolean[maze.getWidth()][maze.getHeight()];
+    // repaint(); // Repaint the maze
     // }
 
     private void startGame(int width, int height) {
@@ -452,14 +479,14 @@ public class Main extends JPanel {
         contentPanel.remove(placeholderLabel);
 
         maze.generate();
-        
+
         visibleWalls = new boolean[width][height]; // Initialize invisible walls
-        
+
         // Initialize wall hit tracking (4 directions per tile)
         wallHits = new boolean[width][height][4]; // 0=NORTH, 1=SOUTH, 2=WEST, 3=EAST
-        
+
         heartsA = heartsB = 3; // Start with 3 hearts for both players
-    
+
         // Randomize player position
         Random random = new Random();
         do {
@@ -467,42 +494,41 @@ public class Main extends JPanel {
             playerY = random.nextInt(height);
         } while (Math.abs(playerX - goalX) < MIN_DISTANCE_FROM_START
                 || Math.abs(playerY - goalY) < MIN_DISTANCE_FROM_START);
-    
+
         // Set goal position randomly
         do {
             goalX = random.nextInt(width);
             goalY = random.nextInt(height);
         } while (Math.abs(goalX - playerX) < MIN_DISTANCE_FROM_START
                 || Math.abs(goalY - playerY) < MIN_DISTANCE_FROM_START);
-    
+
         playerXOri = playerX;
         playerYOri = playerY;
-    
+
         if (!practiceMode)
             changePlayerTurn();
-    
+
         // Reset shapes for the maze
         shapes.clear();
         loadMaze();
-    
+
         int panelWidth = maze.getWidth() * TILE_SIZE + 1;
         int panelHeight = maze.getHeight() * TILE_SIZE + 1;
         setPreferredSize(new Dimension(panelWidth, panelHeight));
-    
+
         if (!statusPanelCreated) {
             createStatusPanel();
             statusPanelCreated = true;
         }
-    
+
         updateStatus();
         repaint();
-    
+
         revalidate(); // Refresh layout
         window.pack(); // Resize the window based on the preferred size
-    
+
         startInvisibleTimer(); // Start the invisible walls timer
     }
-    
 
     // Method to update status labels dynamically
     private void updateStatus() {
@@ -510,11 +536,27 @@ public class Main extends JPanel {
         gameLabel.setText("Game: " + games);
         playerLabel.setText("Player: " + (playerATurn ? "A" : "B"));
         heartsLabel.setText("Hearts: " + (playerATurn ? heartsA : heartsB));
+        playerAWinsLabel.setText("A Wins: " + playerAWins);
+        playerBWinsLabel.setText("B Wins: " + playerBWins);
         try {
             int timerValue = Integer.parseInt(String.valueOf(invisibleTimer));
             invisibleTimerLabel.setText("Invisible in: " + timerValue + " sec");
         } catch (NumberFormatException e) {
             invisibleTimerLabel.setText("Invisible in: 0 sec");
+        }
+    }
+
+    private void playSound(String soundFilePath) {
+        try {
+            if (clip != null && clip.isRunning()) {
+                clip.stop();
+            }
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(soundFilePath).getAbsoluteFile());
+            clip = AudioSystem.getClip();
+            clip.open(audioInputStream);
+            clip.start();
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+            e.printStackTrace();
         }
     }
 
@@ -571,6 +613,7 @@ public class Main extends JPanel {
                 playerY = newY;
             } else {
                 // Hit a wall
+                playSound("src/assets/hit-wall.wav");
                 System.out.println("Hit a wall! at " + playerX + ", " + playerY);
 
                 switch (direction) {
@@ -657,13 +700,13 @@ public class Main extends JPanel {
             }
             if (playerAWins == 4) {
                 JOptionPane.showMessageDialog(this, "Player A Wins the Game!");
-                System.exit(0);
+                // System.exit(0);
             } else if (playerBWins == 4) {
                 JOptionPane.showMessageDialog(this, "Player B Wins the Game!");
-                System.exit(0);
+                // System.exit(0);
             } else if (playerAWins == 3 && playerBWins == 3) {
                 JOptionPane.showMessageDialog(this, "It's a Draw!");
-                System.exit(0);
+                // System.exit(0);
             }
             startNextRound();
         } else if (currentGameAttempts > 2) {
