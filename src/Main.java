@@ -110,7 +110,7 @@ public class Main extends JPanel {
         statusPanel.setLayout(new GridLayout(4, 2)); // 7 rows, 2 columns
 
         roundLabel = new JLabel("Round: " + round);
-        gameLabel = new JLabel("Game: " + games);
+        gameLabel = new JLabel("Game: " + (games + 1));
         playerLabel = new JLabel("Player: " + (playerATurn ? "A" : "B"));
         heartsLabel = new JLabel("Hearts: " + (playerATurn ? heartsA : heartsB));
         playerAWinsLabel = new JLabel("A Wins: " + playerAWins);
@@ -534,7 +534,7 @@ public class Main extends JPanel {
     // Method to update status labels dynamically
     private void updateStatus() {
         roundLabel.setText("Round: " + round);
-        gameLabel.setText("Game: " + games);
+        gameLabel.setText("Game: " + (games + 1));
         playerLabel.setText("Player: " + (playerATurn ? "A" : "B"));
         heartsLabel.setText("Hearts: " + (playerATurn ? heartsA : heartsB));
         playerAWinsLabel.setText("A Wins: " + playerAWins);
@@ -705,15 +705,16 @@ public class Main extends JPanel {
             }
             if (playerAWins == 4) {
                 JOptionPane.showMessageDialog(this, "Player A Wins the Game!");
-                // System.exit(0);
+                resetWholeGame();
             } else if (playerBWins == 4) {
                 JOptionPane.showMessageDialog(this, "Player B Wins the Game!");
-                // System.exit(0);
+                resetWholeGame();
             } else if (playerAWins == 3 && playerBWins == 3) {
                 JOptionPane.showMessageDialog(this, "It's a Draw!");
-                // System.exit(0);
+                resetWholeGame();
+            } else {
+                startNextRound();
             }
-            startNextRound();
         } else if (currentGameAttempts > 2) {
             currentGameAttempts = 1;
             games++;
